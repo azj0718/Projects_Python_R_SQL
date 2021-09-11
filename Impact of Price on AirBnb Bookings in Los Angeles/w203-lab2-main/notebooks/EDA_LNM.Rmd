@@ -1,0 +1,338 @@
+---
+title: "R Notebook"
+output: html_notebook
+author: Lynn Marciano
+---
+
+## Simple EDA
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+```
+
+```{r}
+filtered_listings_data <- read.csv("filtered_listings_data.csv")
+```
+
+
+```{r}
+#subtracting availability from 60 to see how many bookings there are within the next 60 day time span
+listings_bookings <- filtered_listings_data %>%
+  mutate(
+    bookings_next_60 = 60 - availability_60
+  )
+glimpse(listings_bookings)
+```
+
+
+```{r}
+listings_bookings_histogram <- listings_bookings %>%
+  ggplot()+
+  aes(x = bookings_next_60)+
+  geom_histogram(bins=30)+
+  labs(
+    title = "Total Number of Bookings",
+    x = "Bookings",
+    y = "Count"
+  )
+
+listings_bookings_histogram
+
+```
+
+> Total Number of bookings per the next 60 days is definitely modal.
+
+```{r}
+#looking at the distribution of ratings
+
+listings_rating_histogram <- listings_bookings %>%
+  ggplot()+
+  aes(x = review_scores_rating)+
+  geom_histogram()+
+  labs(
+    title = "Listing Ratings",
+    x = "Rating",
+    y = "Count"
+  )
+
+listings_rating_histogram
+```
+
+> Ratings are left skewed, a negative skewness. Mode at 1.00 which is the highest rating.
+
+
+## Ratings and Bookings by themselves
+
+```{r}
+scatter_listings_rating_bookings <- listings_bookings %>%
+ggplot()+
+aes(y = review_scores_rating, x = bookings_next_60)+
+geom_point()+
+labs(
+title = "Relationship of Bookings and Rating",
+x = "Bookings",
+y = "Ratings"
+)
+
+scatter_listings_rating_bookings
+```
+
+> There are a few concerns with our research question as there may not be a defined relationshiping with ratings and bookings..
+
+
+## Does the total number of days the listing is active affect the number of bookings and ratings?
+
+It is under assumption that the listings that are most recently active will have a higher rating. Newer listings may also have more availability; or less bookings, then established listings.
+
+Since there is no active_since column, I'll use host_since. However, this could be misleading since vacation rental companies may be a host for awhile, but have just recently listed a property. On another note, we could analyze if hosts that have been hosts longer could potentially affect the number of bookings a listing may have.
+
+```{r}
+#We have the last_scraped date and the host_since date. We will subtract the host_since date from last_scraped to get a rough estimate as to how long the listing has been active; or at the very least how long the host for the listing has been a host. 
+
+listings_bookings <- listings_bookings %>%
+  mutate(
+    host_active_days = as.numeric(
+      difftime(as.Date(as.character(last_scraped), format="%m/%d/%y"),
+                  as.Date(as.character(host_since), format="%m/%d/%y"),units="days"))
+  )
+
+summary(listings_bookings$host_active_days)
+max(listings_bookings$host_active_days)
+min(listings_bookings$host_active_days)
+```
+
+```{r}
+listings_rating_host_scatterplot <- listings_bookings %>%
+  ggplot()+
+  aes(x = host_active_days, y= review_scores_rating)+
+  geom_point()+
+  labs(
+    title = "Listing Ratings based on Host Active Days",
+    x = "Host Active Days",
+    y = "Rating"
+  )
+
+listings_rating_host_scatterplot
+```
+> I am not sure if we can see a distinguishable correlation here. However, it is a little bit apparent that the hosts who have been listing the longest are not likely to have a lower rating. In fact, most of the long running hosts have ratings no less than .7
+
+
+```{r}
+listings_bookings_host_scatterplot <- listings_bookings %>%
+  ggplot()+
+  aes(x = host_active_days, y= bookings_next_60)+
+  geom_point()+
+  labs(
+    title = "Listing Bookings based on Host Active Days",
+    x = "Host Active Days",
+    y = "Bookings"
+  )
+
+listings_bookings_host_scatterplot
+```
+
+> There is absolutely no distinction between number of bookings based on the duration a host has been active.
+
+---------------------------------------------------------------------------
+
+# Model Building
+
+### I've decided to approach the model building by backwards selection.
+
+I've removed all the bookings variables since we are only interested in bookings_next_60. 
+
+I've also removed other variables that would not be active coefficients to explore.
+The variables include: id, host_id, last_scraped, neighbourhood_group_cleansed, calendar_last_scraped, first_review, last_review.
+
+I removed bathrooms_text because I am not sure how we would handle and distinguish between shared or private baths.
+
+I removed neighbourhood_cleansed because there were 259 different categories and our data is based on LA as a whole.
+
+After analyzing host_since and seeing very little correlation, that variable was removed.
+
+```{r}
+listings_bookings_final = subset(listings_bookings, select=-c(
+  availability_30,
+  availability_60,
+  availability_90,
+  availability_365,
+  id, 
+  host_id,
+  neighbourhood_cleansed,
+  last_scraped, 
+  neighbourhood_group_cleansed,
+  calendar_last_scraped,
+  first_review,
+  last_review,
+  bathrooms_text,
+  host_since,
+  calculated_host_listings_count,
+  calculated_host_listings_count_entire_homes,
+  calculated_host_listings_count_private_rooms ,
+  calculated_host_listings_count_shared_rooms))
+glimpse(listings_bookings_final)
+```
+
+We're left with room_type and property_type as the only categorical data. I changed this to a numerical categorical for the regression model.
+
+```{r}
+listings_bookings_final$room_type <- as.numeric(factor(listings_bookings_final$room_type))
+
+listings_bookings_final$property_type<- as.numeric(factor(listings_bookings_final$property_type))
+```
+
+```{r}
+glimpse(listings_bookings_final)
+```
+The new numerical categories are:
+
+- 1 - Entire home/apt
+- 2 - Hotel room
+- 3 - Private room
+- 4 - Shared room
+
+
+```{r}
+#Build a model with all the coefficients
+model <- lm(bookings_next_60 ~ ., data = listings_bookings_final)
+coeftest(model, vcov= vcovHC(model))
+```
+Based on our t-test of all our coefficients, we can see the following variables are significant:
+
+- host_is_superhost
+- room_type
+- property_type
+- accommodates                
+- price
+- minimum_nights
+- has_availability (we will most likely not include this)
+- number_of_reviews_l30d
+- review_scores_cleanliness
+- review_scores_value
+- host_active_days
+- instant_bookable
+- number_of_reviews
+ 
+Interestingly enough, the variable that we are trying to measure has an effect on bookings is not significant at all, with a p-value of .75
+
+We can also observe that the maximum and minimum amount of nights does not affect the booking.
+
+Surprisingly, beds and bedrooms are not significant but accommodates is. This means we could potentially have a one bedroom apartment that accommodates 10 and it may be more likely to be booked.
+
+*We may want to consider rephrasing our question to **What causes more bookings?**\ *
+
+### Reducing the model to the significant coefficients
+```{r}
+model1 <- lm(bookings_next_60 ~ host_is_superhost + room_type + property_type + accommodates + price + minimum_nights + number_of_reviews_l30d + review_scores_cleanliness + review_scores_value + host_active_days + instant_bookable + number_of_reviews + host_listings_count + host_identity_verified, data = listings_bookings_final)
+
+coeftest(model1, vcov= vcovHC(model1))
+```
+### Checking different fits
+
+```{r}
+model2 <- lm(bookings_next_60 ~ host_is_superhost + room_type + property_type + accommodates + price + minimum_nights + number_of_reviews_l30d + review_scores_cleanliness + review_scores_value + host_active_days + instant_bookable + number_of_reviews , data = listings_bookings_final)
+
+coeftest(model2, vcov= vcovHC(model2))
+```
+> A good review_scores_value is associated with 300 more bookings.
+> A superhost is associated with 1.2 more bookings
+> A listing that is instantly bookable is associated with is 45% more likely to get a booking.
+
+> property_type, room_type, accomodates, price, minimum_nights, number_of_reviews_l30d, and review_scores_cleanliness are all associated with more bookings but at a diminishing rate
+
+
+```{r}
+# adding back in review_scores_rating
+model3 <- lm(bookings_next_60 ~ review_scores_rating + host_is_superhost + room_type + property_type + accommodates + price + minimum_nights + number_of_reviews_l30d + review_scores_cleanliness + review_scores_value + host_active_days + instant_bookable + number_of_reviews , data = listings_bookings_final)
+
+coeftest(model, vcov= vcovHC(model3))
+```
+
+We will assume a difference in slope between a superhost and regular host; or a difference in the marginal returns for ratings with superhosts and hosts
+
+```{r}
+model4 <- lm(bookings_next_60 ~ review_scores_rating + host_is_superhost +
+               host_is_superhost*review_scores_rating + room_type +
+               property_type + accommodates + price + minimum_nights +
+               number_of_reviews_l30d + review_scores_cleanliness +
+               review_scores_value + host_active_days + instant_bookable +
+               number_of_reviews , data = listings_bookings_final)
+
+coeftest(model4, vcov= vcovHC(model4))
+```
+
+> review_scores_rating.host_is_superhost coefficient is significant. However, review_scores_rating is still insignificant.
+
+ wonder if review_scores_rating is not significant because it is on a scale of 1.
+I am going to multiply the review_scores_rating by 5 since on airbnb the scale is 5 stars.
+
+```{r}
+listings_bookings_final <- listings_bookings_final %>%
+  mutate(rating_amped = review_scores_rating*5)
+
+```
+
+```{r}
+model5 <- lm(bookings_next_60 ~ rating_amped + host_is_superhost + room_type +
+               property_type + accommodates + price + minimum_nights +
+               number_of_reviews_l30d + review_scores_cleanliness +
+               review_scores_value + host_active_days + instant_bookable +
+               number_of_reviews , data = listings_bookings_final)
+
+coeftest(model5, vcov= vcovHC(model5))
+```
+
+We saw earlier that rating was not linear. I'll apply a log transform to the rating to try to make it more normal.
+The residuals have a skewed distribution, so we will apply this transform to obtain residuals that are a little bit more symmetrically distributed and to linearize the relationship of ratings and bookings since that is our original research question.
+
+```{r}
+model6 <- lm(bookings_next_60 ~ log(review_scores_rating) + host_is_superhost + 
+               room_type +
+               property_type + accommodates + price + minimum_nights +
+               number_of_reviews_l30d + review_scores_cleanliness +
+               review_scores_value + host_active_days + instant_bookable +
+               number_of_reviews , data = listings_bookings_final)
+
+coeftest(model6, vcov= vcovHC(model6))
+```
+> A log transform on review_scores_rating makes it a bit more significant but at a diminishing rate.
+> We see that review_scores_value is still very significant, with 3.44 more bookings 
+> Instant bookable doesnt seem as significant anymore when we linearized rating
+
+```{r}
+model7 <- lm(bookings_next_60 ~ log(review_scores_rating) + host_is_superhost +
+               room_type + property_type + accommodates + price + minimum_nights +
+               number_of_reviews_l30d + review_scores_cleanliness +
+               review_scores_value + host_active_days +
+               number_of_reviews , data = listings_bookings_final)
+
+coeftest(model7, vcov= vcovHC(model7))
+```
+I wonder if having another review_scores affects the rating.
+I also remove the number_of_reviews.
+
+```{r}
+model8 <- lm(bookings_next_60 ~ log(review_scores_rating) + host_is_superhost +
+               room_type + property_type + accommodates + price + minimum_nights +
+               number_of_reviews_l30d + 
+               review_scores_value + host_active_days,
+             data = listings_bookings_final)
+
+coeftest(model8, vcov= vcovHC(model8))
+```
+Removing review_scores_value
+
+```{r}
+model9 <- lm(bookings_next_60 ~ log(review_scores_rating) + host_is_superhost +
+               room_type + property_type + accommodates + price + minimum_nights +
+               number_of_reviews_l30d +  host_active_days,
+             data = listings_bookings_final)
+
+coeftest(model9, vcov= vcovHC(model9))
+```
+
+Back to where we started. It seems model7 is the best.

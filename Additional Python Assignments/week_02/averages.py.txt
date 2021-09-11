@@ -1,0 +1,19 @@
+a = input("Enter a number for a: ")
+b = input("Enter a number for b: ")
+
+x = int(a)
+y = int(b)
+
+arithmetic_average = (x+y)/2
+geometric_average = pow(x*y,0.5)
+rootmeansquare_average = pow(((x**2+y**2)/2),0.5)
+
+type_choice = input("Type '1' for arithmetric average, '2' for geometric average, or '3' for root mean square average: ")
+if type_choice not in ('1', '2', '3'):
+	print("I'm sorry, looks like you typed something incorrectly. Please read the instructions and try again!")
+elif type_choice == '1':
+	print("Here is the arithmetric average of a and b: ", arithmetic_average)
+elif type_choice == '2':
+	print("Here is the geometric average of a and b: ", geometric_average)
+elif type_choice == '3':
+	print("Here is the root mean square average of a and b: ", rootmeansquare_average)

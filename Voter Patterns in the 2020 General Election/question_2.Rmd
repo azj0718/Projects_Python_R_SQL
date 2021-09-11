@@ -1,0 +1,253 @@
+---
+title: 'Lab 1: Question 2'
+author: "Maria DiMedio, Austin Jin, Jillian Luicci"
+output: pdf_document
+---
+
+```{r load packages, echo=TRUE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2) 
+library(tidyverse)
+library(haven)
+library(knitr)
+```
+
+```{r load and clean data, echo=FALSE, warning=TRUE, message=FALSE}
+
+lab_data <- read_sav("~/lab_1/anes_timeseries_2020_spss_20210324.sav")
+
+#reduce the dataframe by respondents who did not complete post interviews
+# -6: 'no-post election interview'; -7: 'deleted due to incomplete interview'
+lab_data <- lab_data %>%
+  filter(across(everything(), ~ !grepl("-6", .)))
+lab_data <- lab_data %>% 
+  filter(across(everything(), ~ !grepl("-7", .)))
+
+
+# Assume that the population of voters are those that responded
+# to V202116 POST: WHEN R VOTED IN 2020 ELECTION
+# with either 1 = "On election day" 2 = "A few days before election day"
+# 3 = "A week or more before election day"
+
+voters <-filter(lab_data, lab_data$V202116 == 1 | lab_data$V202116 == 2 | lab_data$V202116 == 3)
+
+# Filter for Q1 and Q2 where we are focused only on Democrats and Republicans
+# Responded to V201018 RE: PARTY OF REGISTRATION
+# with either 1 = "Democratic party" or 2 = "Republican party"
+
+voters_dem_rep_only <- filter(voters, V201018 == 1 | V201018 == 2)
+
+#create column 'political_party'
+voters_dem_rep_only <- voters_dem_rep_only %>%
+  mutate(political_party = case_when(
+    V201018 == 1 ~ 'Democratic',
+    V201018 == 2 ~ 'Republican'))
+
+table(voters_dem_rep_only$political_party)
+sum(is.na(voters_dem_rep_only$political_party))
+```
+
+# Did Democratic voters or Republican voters report experiencing more difficulty voting in the 2020 election?
+
+## Importance and Context
+
+Did Democratic voters or Republican voters report experiencing more difficulty voting in the 2020 election?
+
+The 2020 General Election was an anomaly in terms of voter turnout. The high sociopolitical tensions leading up to the election caused millions of Americans to feel strongly about casting their vote. Simultaneously, the country was in the middle of battling Coronavirus, and the pandemic made health safety a priority when holding the election. This engendered new protocols for casting mail-in ballots, and increased the overall number of ballots cast. The American National Election Studies (ANES) survey conducted polled American voters on how difficult of an experience they had casting their votes in the 2020 election. Since the election, efforts have been made by legislators to restrict voting access and introduce additional protocols that many believe will increase how difficult it is to vote, largely in Republican-led states. To the extent that this may be a result of election outcomes, it may help to understand the reported voting difficulties in the 2020 General Election, comparing across political parties. 
+
+
+## Description of Data
+
+By our definition, we will refer to Democratic and Republican voters as those who report being registered to either party, and who report casting a vote in the 2020 election. In this dataset, all observations are individual respondents to the survey. In order to refine this sample to Democratic and Republican voters, the dataset was filtered by two survey data fields. First, to ensure the sample included only 'voter' respondents, a filter was added on the post-election survey question ('V202116') asking when the respondent voted. This ensures that all observations are of individuals who report having cast their vote. Second, party affiliation was determined by the pre-election survey question asking respondents which party they were registered with ('V201018'), extracting Democratic and Republican registered respondents.
+
+Additionally, the dataset was filtered by those respondents who did not respond to the post-election survey. Because we are using pre and post survey questions, this filter was applied to maintain the integrity of testing. To operationalize this research question, we will use the party affiliation variable to group Republicans and Democrats, and then will use the ordinal variable on level of voting difficulty to compare voting difficulty across parties.
+
+Three additional columns were created in this dataset after subsetting on the above filters. One column indicating the political party the respondent was affiliated with, and a second for the level of difficulty they experienced when voting. This was done to appropriately visualize the numeric data fields. The third is a variable which represents respondents either had some level of difficulty of voting, or no difficulty, regardless of the degree of difficulty they reported. This was done to analyze overall the quantity of experienced voting difficulty in this sample.
+
+```{r data cleaning}
+voters_dem_rep_only <- voters_dem_rep_only %>%
+  mutate(difficulty_voting = case_when(
+    V202119 == 1 ~ 'Not Difficult',
+    V202119 == 2 ~ 'A Little Difficult',
+    V202119 == 3 ~ 'Moderately Difficult',
+    V202119 == 4 ~ 'Very Difficult',
+    V202119 == 5 ~ 'Extremely Difficult')
+    )
+
+voters_dem_rep_only <- voters_dem_rep_only %>%
+  mutate(difficulty_summary = case_when(
+    V202119 == 1 ~ 'Not Difficult',
+    V202119 == 2 ~ 'Difficult',
+    V202119 == 3 ~ 'Difficult',
+    V202119 == 4 ~ 'Difficult',
+    V202119 == 5 ~ 'Difficult')
+    )
+
+```
+
+
+The majority of Democratic and Republican voters did not experience difficulty voting, as seen in the barplot below. When omitting those that answered this question with 'not difficult' response, the distribution of response appears to indicate that most Democrats experienced little difficulty, while those voters that experienced the most difficulty were Republican.
+
+```{r data exploration}
+table(voters_dem_rep_only$V202119)
+
+difficulty_plot <- voters_dem_rep_only %>% 
+  ggplot() + 
+  aes(x = reorder(difficulty_voting, difficulty_voting,function(x)-length(x)), fill = political_party) + 
+  geom_bar(position = 'dodge') + 
+  scale_fill_manual(values=c("blue", "red")) +
+  labs(
+    title    = 'Voting Difficulty in the 2020 Election: Republicans vs. Democrats', 
+    subtitle = 'Majority of respondents did not experience difficulty voting.', 
+    x        = 'Level of Difficulty', 
+    y        = 'Count of Respondents',
+    fill     = 'Respondant Party'
+  )
+
+difficulty_plot
+```
+
+Having created a dummy variable to compare some level of difficulty to no difficulty in voting, the below plot shows the summary statistics for Democratic and Republican respondents overall reaction to voting challenges.
+
+
+```{r data exploration}
+count = table(voters_dem_rep_only$difficulty_summary)
+percent = prop.table(table(voters_dem_rep_only$difficulty_summary))
+
+count
+percent
+
+overall_plot <- voters_dem_rep_only %>%
+  ggplot() +
+  aes(x=difficulty_summary) +
+  geom_bar(fill = 'orange') +
+  labs(
+    title = 'Respondents With No Difficulty vs. 
+    Some Level of Difficulty Voting',
+    x = 'Summarized Response Categories',
+    y = 'Count of Respondents'
+  )
+
+overall_plot
+```
+
+
+
+
+```{r data exploration}
+difficulty_voting <- subset(voters_dem_rep_only, voters_dem_rep_only$V202119 != 1)
+
+table(difficulty_voting$V202119)
+
+difficulty_plot2 <- difficulty_voting %>% 
+  ggplot() + 
+  aes(x = reorder(difficulty_voting, difficulty_voting,function(x)-length(x)), fill = political_party) +
+  geom_bar(position = 'dodge') + 
+  scale_fill_manual(values=c("blue", "red")) +
+  labs(
+    title    = 'Voting Difficulty in the 2020 Election: Republicans vs. Democrats', 
+    subtitle = 'Distribution of respondents who experienced some difficulty voting.', 
+    x        = 'Level of Difficulty', 
+    y        = 'Count of Respondents',
+    fill     = 'Respondant Party') +
+  theme(legend.position = 'bottom')
+
+difficulty_plot2
+```
+
+Interestingly, the trend in distribution of data in the plot above appears to indicate that for those Democratic respondents who responded that they experiences some level of difficulty, their level of difficulty tended to be low on the scale (2-5) of ranked difficulty. In contrast, not many Republican respondents indicated that they had experienced as much difficulty, except for in the most extreme category, in which more Republicans than Democrats indicated they had an extremely difficult time casting their vote. This can also be seen in the cross table below.
+
+```{r}
+table(difficulty_voting$political_party)
+
+prop.table(table(difficulty_voting$political_party))
+
+summary = prop.table(table(difficulty_voting$political_party, difficulty_voting$V202119))
+
+summary
+```
+```{r}
+
+kable(
+  summary,
+  digits = 2,
+  caption = 'Comparison Table of Some Level of Voting Difficulty Across Parties', 
+  booktabs = TRUE, 
+)
+```
+
+
+## Most appropriate test 
+In order to test this research question, the Wilcoxon rank-sum test was selected. This is because the data of interest is unpaired and nonparametric, and because the response variable we are evaluating is an ordinal categorical scale indicating the respondent's level of difficulty voting. We will implement this test in R, with the null hypothesis of comparisons being that there was no difference between probability that Republicans or Democrats would experience voting difficulty. As an alternative hypothesis, we propose that there is a difference in how likely it is that Republicans or Democrats report experiencing voting difficulty. Based on the exploratory analysis done above, we expect this to have directionality, and that an alternative hypothesis is that Democrats report experiencing greater difficulty when voting. The rejection criteria for this test will be an alpha of 0.05.
+
+<!-- List every assumption that your test requires and evaluate it. -->
+The assumptions that must be met for the Wilcoxon rank-sum test are:
+1. The data is non-parametric and unpaired: The data in this sample analysis is unpaired, as we are comparing across two groups (Republicans and Democrats), and This data meets the first assumption.
+2. The variable is ordinal: The variable being compared is column 'V202119' an ordinal response variable ranking level of difficulty on a scale of 1-5, which meets the second assumption.
+3. The sampling is done using I.I.D.: We assume that random sampling has taken place when the ANES survey was operationalized, and we assume that the sample is distributed identically to the population, which in this case would be voting Americans.
+
+## Test, results and interpretation
+<!-- What are the results of your test? --> 
+<!-- What do the results of this test mean? What is the practical significance? --> 
+
+```{r testing}
+#using the full sub data set including rank = 1 for the voting difficulty
+res <- wilcox.test(V202119 ~ political_party , data = voters_dem_rep_only, alternative = 'two.sided')
+res
+```
+```{r testing}
+res2 <- wilcox.test(V202119 ~ political_party , data = voters_dem_rep_only, alternative = 'greater')
+res2
+```
+The results of this test are quite statistically significant. From this test, the p-value result is 0.0008749, which is less than the alpha 0.05 established as a rejection criteria. With this result, we will reject the null hypothesis that there was no likely difference between political parties and the level of voting difficulty the respondent experienced in the 2020 election. Because our alternative hypothesis was directional, we can report that we believe Democrats experienced more difficulty voting in the election. 
+
+** effect size **
+
+The practical significance of this outcome indicates that all voters do not experience the same amount of difficulty when casting their vote. Democrats tend to be more likely to report experiencing these challenges than Republicans, which raises additional questions regarding why that would be the case. Additionally, for government bodies, it is important to review this information and understand that there is a potential for inequitable voting patterns to emerge or influence election outcomes.
+
+
+## Test Limitations 
+Given the statistical significance of this result, there is clearly a difference between reported voting difficulty across political parties in the US. The outcomes of this test are limited, however, by the fact that this election was held in a very tumultuous time in American politics, and we cannot guarantee that response data is accurate. For example, there could be respondents who feel frustrated by their government and report more difficulty voting than actually was experienced. Additionally, we cannot draw causality between party membership and level of voting difficulty. As we have seen, most of the respondents experienced no difficulty whatsoever, in both parties. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

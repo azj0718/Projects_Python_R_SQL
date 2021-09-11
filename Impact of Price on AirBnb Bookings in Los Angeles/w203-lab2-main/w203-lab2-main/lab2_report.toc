@@ -1,0 +1,15 @@
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}%
+\contentsline {section}{\numberline {2}Model Building Process}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Data Description}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Exploratory Data Analysis}{3}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Model Selection and the Subset Selections}{5}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Regression Results}{6}{section.3}%
+\contentsline {section}{\numberline {4}CLM Assumptions and Limitations of the Model}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}\textbf {1. IID Sampling}}{7}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}\textbf {2. No Perfect Colinearity}}{8}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}\textbf {3. Linear Conditional Expectation}}{8}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}\textbf {4. Homoskedastic Errors}}{9}{subsection.4.4}%
+\contentsline {subsection}{\numberline {4.5}\textbf {5. Normally Distributed Errors}}{12}{subsection.4.5}%
+\contentsline {section}{\numberline {5}Ommitted Variables}{12}{section.5}%
+\contentsline {section}{\numberline {6}Conclusion}{13}{section.6}%
+\contentsline {section}{\numberline {7}Bibliography}{13}{section.7}%

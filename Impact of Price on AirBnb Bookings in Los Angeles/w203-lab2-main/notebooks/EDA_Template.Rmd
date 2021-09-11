@@ -1,0 +1,66 @@
+---
+title: "EDA_JN"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+```
+
+```{r read in data}
+
+listings_uncleaned_data <- read.csv(file.path("~/w203-lab2/src/data", "listings.csv"))
+covid_cases_uncleaned_data <- read.csv(file.path("~/w203-lab2/src/data", "covid_cases.csv"))
+ca_vaccinations_uncleaned_data <- read.csv(file.path("~/w203-lab2/src/data", "ca_vaccinations.csv"))
+```
+
+```{r create new data}
+#keep only necessary columns
+
+listings_data <- subset(listings_uncleaned_data, select = c(id,	last_scraped,	host_id,	host_since,	host_is_superhost,	host_listings_count,	host_total_listings_count,	host_identity_verified,	neighbourhood_cleansed,	neighbourhood_group_cleansed,	property_type, room_type,	accommodates,	bathrooms_text,	bedrooms,	beds,	price,	minimum_nights,	maximum_nights,	minimum_minimum_nights,	maximum_minimum_nights,	minimum_maximum_nights,	maximum_maximum_nights,	minimum_nights_avg_ntm,	maximum_nights_avg_ntm,	has_availability,	availability_30,	availability_60,	availability_90,	availability_365,	calendar_last_scraped,	number_of_reviews,	number_of_reviews_ltm,	number_of_reviews_l30d,	first_review,	last_review, review_scores_rating,	review_scores_accuracy,	review_scores_cleanliness,	review_scores_checkin,	review_scores_communication,	review_scores_location,	review_scores_value,	instant_bookable,	calculated_host_listings_count,	calculated_host_listings_count_entire_homes,	calculated_host_listings_count_private_rooms,	calculated_host_listings_count_shared_rooms,	reviews_per_month))		
+```
+
+
+```{r clean and filter data}
+
+#transform character columns to numeric and percentage to decimal
+listings_data <- listings_data %>%
+  mutate(host_is_superhost = case_when(host_is_superhost == 't' ~ 1,
+                                      host_is_superhost == 'f' ~ 0),
+        host_identity_verified = case_when(host_identity_verified == 't' ~ 1,
+                                           host_identity_verified == 'f' ~ 0),
+        has_availability = case_when(has_availability == 't' ~ 1,
+                                     has_availability == 'f' ~ 0),
+        instant_bookable = case_when(instant_bookable == 't' ~ 1,
+                                     instant_bookable == 'f' ~ 0),
+        price = as.numeric(gsub("[$,]", "", listings_data$price)),
+        review_scores_rating = review_scores_rating/100)
+        
+#filter vaccinations data
+ca_vaccinations <- filter(ca_vaccinations_uncleaned_data, Recip_County == "Los Angeles County" )
+
+#filter COVID-19 cases
+covid_cases <- filter(covid_cases_uncleaned_data, area == "Los Angeles" & area_type == 'County')
+
+#how many na's per column for each dataset
+colSums(is.na(listings_data))
+#colSums(is.na(ca_vaccinations))
+#colSums(is.na(covid_cases))
+
+```
+
+```{r remove NA's}
+#drop rows with empty cells
+listings_data <- listings_data %>% drop_na()
+ca_vaccinations <- ca_vaccinations %>% drop_na()
+covid_cases <- covid_cases %>% drop_na()
+```
+
+```{r}
+summary(listings_data)
+```

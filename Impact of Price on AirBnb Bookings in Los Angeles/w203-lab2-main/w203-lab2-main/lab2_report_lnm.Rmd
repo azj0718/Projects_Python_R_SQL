@@ -1,0 +1,132 @@
+---
+title: "lab2_report_lnm"
+output: pdf_document
+---
+
+# Charts and Variables Explanatory
+
+```{r}
+colora = "#66CBDA"
+colorb = "#036F64"
+colorc = "#F15D3F"
+colord = "#1A3C6E"
+colore = "#4B9F46"
+```
+
+
+```{r}
+
+room_types_bar <- listings_data %>%
+  ggplot()+
+  aes(x = room_type)+
+  geom_bar(fill = "#4B9F46")+
+  labs(
+    title = "Count of Airbnb Listing Types",
+    x = "Listing Type",
+    y = "Count"
+  )
+
+room_types_bar
+
+```
+
+```{r}
+bookings_hist <- listings_data  %>% 
+  ggplot()+
+  aes(x = availability_60, fill = room_type) +
+  geom_histogram(bins = 100) +
+  scale_fill_manual(values=c("#66CBDA", "#036F64", "#F15D3F", "#1A3C6E")) +
+  labs(
+    title = "Bookings Histogram",
+    x= "Bookings",
+    y= "count"
+  )
+
+bookings_hist
+```
+
+```{r}
+rating_scatter <- listings_data %>%
+  ggplot() + 
+  aes(
+    y = log(price), 
+    x =  review_scores_rating, 
+    color = room_type) + 
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  scale_color_manual(values=c("#036F64","#66CBDA", "#4B9F46", "#F15D3F", "#1A3C6E")) +
+  labs(
+    title = "Price & Rating Relationship", 
+    y = "Price", 
+    x = "Rating",
+    color = "Room Type")
+
+rating_scatter
+```
+
+```{r}
+dis_price_log <- listings_data %>%
+  ggplot() +
+  aes(x = log10(price))+
+  geom_histogram(fill = "#1A3C6E", bins = 40) +
+  labs(title = "Distribution of Price (log)")
+
+stat_function(fun = dnorm, args = list(mean = mean(listings_data$price), sd = sd(listings_data$price)))
+
+dis_price_log
+```
+
+```{r}
+dis_availability <- listings_data %>%
+  ggplot() +
+  aes(x = availability_60)+
+  geom_histogram(fill = "#036F64", bins = 40) +
+  labs(title = "Distribution of Availability (next 60 days)")
+
+dis_availability
+```
+
+```{r}
+dis_rating <-  listings_data %>%
+  ggplot() +
+  aes(x = review_scores_rating)+
+  geom_histogram(fill = "#F15D3F", bins = 40) +
+  labs(title = "Distribution of Ratings")
+
+dis_rating
+```
+
+```{r}
+accommodates_hist <- listings_data %>%
+  ggplot() +
+  aes(x = accommodates)+
+  geom_histogram(fill = "#4B9F46", bins = 40) +
+  labs(title = "Distribution of Listing Capacity")
+
+accommodates_hist
+```
+
+
+```{r}
+
+instant_bookable_bar <- listings_data %>%
+  mutate(
+    instant_bookable_tf = case_when(
+      instant_bookable == "t" ~ "TRUE",
+      instant_bookable == "f" ~ "FALSE",
+    ) 
+  ) %>%
+  ggplot()+
+  aes(x = instant_bookable_tf)+
+  geom_bar(fill = "#F15D3F")+
+  labs(
+    title = "Count of Instant Bookable Listings",
+    x = "Instant Bookable (T/F)",
+    y = "Count"
+  )
+
+instant_bookable_bar
+
+
+```
+

@@ -1,0 +1,13 @@
+income = input("Please enter your income: ")
+
+x = int(income)
+
+if x <= 1000:
+	tax = x * .05
+	print("The tax owed is: ", "$"+format(tax, '.2f'))
+elif 1000 < x <= 2000:
+	tax = (1000*.05) + ((x - 1000)*.10)
+	print("The tax owed is: ", "$"+format(tax, '.2f'))
+elif x > 2000:
+	tax = (1000*.05) + ((x-1000)*.10) + ((x-2000)*.15)
+	print("The tax owed is: ", "$"+format(tax, '.2f'))

@@ -1,0 +1,17 @@
+mkdir week_01
+cd week_01
+touch answers.txt
+mkdir s1
+cd s1
+mkdir s3
+cd s3
+echo 'virtus1 (conda) environments are my favorite new technology' > conf.txt
+cd ..
+mkdir s2
+cd s2
+echo 'virtual environments are good for ...' > text_chunk1.txt
+echo 'I like them because ...' >> text_chunk1.txt
+mkdir Advanced
+cp text_chunk1.txt Advanced/text_chunk2.txt
+cd Advanced
+echo 'Do you want to build a snowman?' >> text_chunk2.txt

@@ -1,0 +1,11 @@
+gallons = input("Enter the number of gallons of gasoline: ")
+
+g = int(gallons)
+
+liters = format(g * 3.7854, '.4f')
+barrels = format(g / 19.5, '.3f')
+dollars = format(g * 3.65, '.2f')
+
+print("The number of gallons in liters would be:", liters)
+print("The number of barrols of oil required would be:", barrels)
+print("The price in U.S. dollars would be:", dollars)

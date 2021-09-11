@@ -1,0 +1,184 @@
+---
+title: 'Lab 1: Question 1'
+author: "Maria DiMedio, Austin Jin, Jillian Luicci"
+output: pdf_document
+---
+
+```{r load packages, echo=TRUE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(ggplot2) 
+library(tidyverse) # if you want more, but still core, toolkit
+library(haven)
+library(kableExtra)
+library(moments)
+```
+
+```{r load and clean data, echo=FALSE, warning=TRUE, message=FALSE}
+# Load data
+lab_data <- read_dta('C:/Users/jluic/OneDrive/Desktop/Berkeley/203/anes_timeseries_2020_stata_20210324.dta')
+
+# reduce the dataframe by respondents who did not complete post interviews
+# -6: 'no-post election interview'; -7: 'deleted due to incomplete interview'
+
+lab_data <- lab_data %>%
+  filter(across(everything(), ~ !grepl("-6", .)))
+lab_data <- lab_data %>% 
+  filter(across(everything(), ~ !grepl("-7", .)))
+
+# Assume that the population of voters are those that responded
+# to V202116 POST: WHEN R VOTED IN 2020 ELECTION
+# with either 1 = "On election day" 2 = "A few days before election day"
+# 3 = "A week or more before election day"
+
+voters <-filter(lab_data, lab_data$V202116 == 1 | lab_data$V202116 == 2 | lab_data$V202116 == 3)
+
+voters <- voters %>%
+  mutate(political_party = case_when(
+    V201018 == 1 ~ 'Democratic',
+    V201018 == 2 ~ 'Republican',
+    V201018 == 4 ~ 'None',
+    V201018 == 5 ~ 'Other'))
+# We are focused only on Democrats and Republicans who
+# responded to V201018 RE: PARTY OF REGISTRATION
+# with either 1 = "Democratic party"
+# or 2 = "Republican party"
+# Use the PRE value since we do not expect party to change
+# frequently and the data quality on the POST value is bad
+
+voters_dem_rep_only <- filter(voters, V201018 == 1 | V201018 == 2)
+
+#create column 'political_party' for readability
+
+#Voters must be 18 or older
+voters_dem_rep_only_18orOlder <- filter(voters_dem_rep_only, V201507x >= 18)
+```
+
+
+## Importance and Context
+
+Is the average age of self-identified Democratic voters different from self-identified Republican voters in 2020?
+
+In many ways, the 2020 Presidential election created much greater partisan polarization than recent elections. The nation was particularly divided by its views on the government’s handling of the COVID-19 pandemic and the history of systemic racial injustice. Since much of the Presidential campaign and the Presidential debates occurred during state-mandated lockdowns, many citizens used their time at home to focus on the election.
+
+Understanding the demographics of American voters is critical to predicting the outcomes of elections and describing the views of generational groups. When voters self-identify with a political party, the voter tends to select their party’s candidate in upcoming Presidential elections (Petrocik). Additionally, grouping voters by generation allows us to describe generations in terms of their political priorities. A better understanding of the voters who are affiliated with the two largest political parties in the United States could help us understand the political attitudes and behaviors of Americans. Further, the government could use this information to provide more targeted support to its citizens.
+
+## Description of Data
+
+To answer this question, we will use the data from the 2020 American National Election Studies (ANES) Time Series Study. In this dataset, all observations are individual respondents to the survey. 
+
+To ensure the sample included only 'voter' respondents, this report limits the data to individuals that stated that they either voted early or on election day. Further, the dataset was narrowed to respondents who completed the post-election survey to maintain the integrity of testing. Lastly, this report only contains analysis on survey respondents who provided their age. For improved readability, we operationalized the data by replacing the numeric values for the parties with the naming descriptors 'Democratic' and 'Republican' as defined in the ANES Time Series Data codebook.
+
+Figure 1: Voter Party of Registration in 2020
+
+| Democratic | Republican | None   | Other |
+| ---------- | ---------- | ------ | ----- |
+| 44.71%     | 31.61%     | 23.03% | 0.65% |
+
+As reported in Figure 1, roughly 75% of voters identify as either Democratic or Republican. We will focus analysis on this majority population going forward. Party of registration was determined using pre-election survey question. The post election party of registration survey only contained a response of ‘Inapplicable’ for the voter population defined above; as such, the post-election party of registration field was not considered in this analysis. 
+
+```{r Data exploration, echo = FALSE}
+
+# Checking the distribution of party of registration 
+
+voters_with_party_response <- filter(voters, V201018 >=1)
+
+# Create a frequency table for the pre-election party of registration
+table(voters_with_party_response$political_party)*100/length(voters_with_party_response$political_party)
+
+# Create a frequency table for the post-election party of registration
+table(voters_dem_rep_only_18orOlder$V202064)*100/length(voters_dem_rep_only_18orOlder$V202064)
+
+# The post-election value does not contain good data for us to work with
+# Further analysis will be performed on the pre-election
+# party of registration value.
+
+# Filter on those who provided a response to the survey question
+voters_with_party_response <- filter(voters, V201018 >= 1)
+
+# Plot the histogram for party of registration
+party_bar <- voters_with_party_response %>%
+  ggplot() + 
+  aes(fct_infreq(political_party), fill = 'orange') + 
+  geom_bar() +
+  labs(
+    title    = 'Party of Registration', 
+    x        = 'Party', 
+    y        = 'Count of Observations'
+  ) 
+
+# Print histogram
+party_bar
+
+# Checking age of Democratic and Republican voters
+
+# Bucket into age groups
+voters_dem_rep_only_18orOlder <- voters_dem_rep_only_18orOlder %>%
+  mutate(age_range = case_when(
+    (V201507x >= 18 & V201507x <=29) ~ '18-29',
+    (V201507x >= 30 & V201507x <=44) ~ '30-44',
+    (V201507x >= 45 & V201507x <=59) ~ '45-59',
+    (V201507x >= 60 & V201507x <=79) ~ '60-79',
+    V201507x == 80 ~ '80+'))
+
+# Create histogram of voter age groups
+
+age_range_histogram <- voters_dem_rep_only_18orOlder %>%
+  ggplot() +
+  aes(x=age_range, fill = political_party) + 
+  geom_bar(position = 'dodge') + 
+  scale_fill_manual(values=c("blue", "red")) +
+  labs(
+    title    = 'Figure 2: Democratic and Republican Age Range Histogram', 
+    x        = 'Age Range', 
+    y        = 'Count of Voters'
+  ) 
+
+# Print histogram of voterage groups
+age_range_histogram
+
+# Create histogram of voter age ungrouped
+
+age_histogram <- voters_dem_rep_only_18orOlder %>%
+  ggplot() +
+  aes(x=V201507x, fill = political_party) + 
+  geom_bar(position = 'dodge') + 
+  scale_fill_manual(values=c("blue", "red")) +
+  labs(
+    title    = 'Figure 3: Democratic and Republican Age Range Histogram', 
+    x        = 'Age Range', 
+    y        = 'Count of Voters'
+  ) 
+
+# Print histogram of voterage groups
+age_histogram
+
+# Check skewness of voter age
+skewness(voters_dem_rep_only_18orOlder$V201507x)
+
+```
+
+
+As seen in Figure 2, there are fewer voters affiliated with either the Democratic and Republican parties in the 18-29 and 80+ ranges. The age range with the most party affiliation is the 60-79 range. The ages of Democratic and Republican voters have a slightly negative skew. As seen in Figure 3, there is a spike of voters aged 80. This is due to a limitation in the survey data; all voters 80 and above are considered to be 80.
+
+## Most appropriate test 
+
+We have two groups, Democrats and Republicans. Each group's age is measured on a metric scale. Therefore, the most appropriate test is a two-sample t-test.
+
+The two-sample t-test requires the following assumptions to be true. First, data must be on a metric scale. Generally, age is on a metric scale since each voter responded with a numeric age. It is important to note that all voters aged 80+ are considered 80. We believe this slight violation of this assumption is acceptable given the 80+ bucket only represents 6.5% of all Democratic and Republican voters. We do not believe using 80 for this group of people will significantly impact the means and corresponding results. Second, the data should be independently and identically distributed. Age and political party are both independent variables. Since the individuals were randomly sampled, this criteria is sufficiently met. Lastly, there should be no deviations from normality. We measured the skew to be -.27, but the sample size is large enough to rely on the Central Limit Theorem ("CLT") which implies a normal distribution of the mean.
+
+
+## Test, results and interpretation
+
+The null hypothesis that we are testing is that the age of democratic voters is the same as republican voters. The alternative hypothesis is that the age of democratic voters is not the same as the age of republican voters.
+
+
+```{r, echo=TRUE}
+t_test <- t.test(V201507x ~ political_party, data = voters_dem_rep_only_18orOlder, na.rm=TRUE)
+t_test
+```
+
+This test produces enough evidence to reject the null hypothesis. The p-value for this test is very small, and falls within our rejection range. However, we note that the mean age of democrats is only ~3.6 years less than that of republicans. While there is statistical evidence that we should reject the null hypothesis, the difference of means is practically insignificant. Further, since we consider voter age demographics in terms of generational buckets, the expected age of both democrats and republicans is in the Boomer generation. 
+
+## Test Limitations
+
+We have conducted this test based on the 2020 ANES Time Series Data. There were two major limitations in the test described in this report. First, we were limited to using pre-election survey data for each voter's party of registration. Any changes to voter party affiliation after the pre-election survey was done will not be reflected in this report. This data represents the voters party affiliation at a point in time, but this affiliation may change at any point following the pre-election survey. Second, all respondents 80 and above were considered to be 80. This has some undefined impact on the means we used to conduct our two-sample t-test. While our test was able to reject the null hypothesis given the data in the ANES survey, it is possible that using precise age figures for the 80+ resondents could change the results of our test.

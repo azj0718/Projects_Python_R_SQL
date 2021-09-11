@@ -1,0 +1,175 @@
+---
+title: 'Lab 1: Question 3'
+author: "Austin Jin, Jillian Luicci, Maria DiMedio"
+output: pdf_document
+---
+
+```{r load packages, echo=FALSE, warning=FALSE, message=FALSE}
+
+library(dplyr)
+library(ggplot2) 
+library(tidyverse)
+library(haven)
+
+lab_data <- read_dta('anes_timeseries_2020_stata_20210324.dta')
+```
+
+# Are people who believe that science is important for making government decisions about COVID-19 more likely to disapprove of the way their governor is handling the pandemic?
+
+## Importance and Context
+
+The COVID-19 pandemic emerged in the United States at a moment of extremely high levels of political polarization on the one hand and extremely low levels of trust in government institutions on the other. With this backdrop, government agencies pushed a set of health mandates for all Americans to adapt, such as social distancing and vaccine injections, to limit the transmission of the virus. These orders were unprecedented in how they required all individuals to alter their everyday routines to reduce the spread of the disease and help protect public health. With that being said, it became crucial to analyze data on how a certain segment of scientifically-aligned individuals are responding to the government's methods on handling the pandemic. The data analysis and results would examine the extend of the relationship between political worldviews of individuals who believe in the importance of science for making COVID-19 decisions and their trust in the way governors have been handling the pandemic by drawing conclusions through a unique data set posted by ANES. Understanding how politics shape health behaviors and risk perception is especially pressing when we consider that the pandemic emerged among anxieties about the trustworthiness of government institutions.
+
+## Description of Data
+
+The two variables used from the 2020 American National Election Studies (ANES) were V201147x and V202310. Since the question asked specifically for people who believe that science is important for making government decisions about COVID-19, we utilized the V202310 variable which provided a scale from 1 to 5 (1 being not important at all to 5 being extremely important) on how important respondents selected science to be for decisions about COVID-19. We particularly focused on scoping the data analysis to just using 5 (extremely important) and 1 (not important at all)  so that we could utilize filtered data that pertained to only two binary groups of people who believed in the importance of science for making COVID-19 decisions versus those who don’t believe in the importance of science for making COVID-19 decisions. Out of the respondents who believed that science is extremely important and who believed that science is not important at all for making decisions about COVID-19, we added in a layer of approval levels through V201147x that scaled from 1 to 4 (1 being approve strongly, 2 being approve not strongly, 3 being disapprove not strongly, and 4 being disapprove strongly). Just like how V202310 was filtered to only show data on respondents who selected 'extremely important'/’not important at all’, the 2nd variable V201147x was also filtered to only show respondents who selected 1 through 4 and excluding -2 (DK/RF in V201145 or V201146) since it seemed to have no relevance with the approval levels.
+
+In essence, the method was to first decide how to form a group of the following two elements: People who believe in science for making decisions about COVID-19 along with their approval levels on how the governor is handling the pandemic VS. People who don't believe in science for making decisions about COVID-19 along with their approval levels on how the governor is handling the pandemic. Then the next steps were to measure the results of both groups and decide whether people who believe or don't believe in science were likely to either approve or disapprove of how the governor is handling the pandemic. The binary group of those who believe in science versus those who don’t were binded into one variable called ‘mydata2’ to compare the approval levels across both groups and performed a wilcoxon ranked-sum test on that ‘mydata2’ variable due to the ordinal scale of the values. In order to perform the wilcoxon ranked-sum test, a seperate dataframe needed to be utilized to re-convert the approval_level and belief values into numeric.
+
+```{r load and clean data, echo=FALSE, warning=TRUE, message=FALSE}
+#Load Data
+# The following would reduce the dataframe by respondents who did not complete post interviews
+# -6: 'no-post election interview'; -7: 'deleted due to incomplete interview'
+lab_data <- lab_data %>%
+  filter(across(everything(), ~ !grepl("-6", .)))
+lab_data <- lab_data %>%
+  filter(across(everything(), ~ !grepl("-7", .)))
+
+# Assumption that the population of voters are those who responded to V202116 POST: WHEN R VOTED IN 2020 ELECTION with either 1 = "On election day", 2 = "A few days before election day", 3 = "A week or more before election day"
+voters <-filter(lab_data, lab_data$V202116 == 1 | lab_data$V202116 == 2 | lab_data$V202116 == 3)
+
+#The following below is a reduced dataframe to only include respondents who believe in the importance of science for making decisions about COVID-19 and their approval levels from approving strongly to disapproving strongly
+
+believe_in_science <- filter(voters, voters$V202310 == 5, voters$V201147x >= 1)
+
+#In order to create a column 'approval_levels' for readability, the numbers 1 to 4 in the V201147x variable has been changed to the approval description embedded in the codebook
+
+believe_in_science <- believe_in_science %>%
+  mutate(approval_level = case_when(
+    V201147x == 1 ~ 'Approve Strongly',
+    V201147x == 2 ~ 'Approve Not Strongly',
+    V201147x == 3 ~ 'Disapprove Not Strongly',
+    V201147x == 4 ~ 'Disapprove Strongly'))
+
+#The following below is a reduced dataframe to only include respondents who don't believe in the importance of science for making decisions about COVID-19 and their approval levels from approving strongly to disapproving strongly
+
+dont_believe_in_science <- filter(voters, voters$V202310 == 1, voters$V201147x >= 1)
+
+#In order to create a column 'approval_levels' for readability, the numbers 1 to 4 in the V201147x variable has been changed to the approval description embedded in the codebook
+
+dont_believe_in_science <- dont_believe_in_science %>%
+  mutate(approval_level = case_when(
+    V201147x == 1 ~ 'Approve Strongly',
+    V201147x == 2 ~ 'Approve Not Strongly',
+    V201147x == 3 ~ 'Disapprove Not Strongly',
+    V201147x == 4 ~ 'Disapprove Strongly'))
+```
+
+```{r Create histogram and boxplot that provides side-by-side analysis of both those who believe and don't believe in science along with approvals}
+(believer <- data.frame(belief = rep("Believe",length(believe_in_science$approval_level)),
+                        approval = believe_in_science$approval_level))
+(non_believer <- data.frame(belief = rep("No_Believe",length(dont_believe_in_science$approval_level)),
+                            approval = dont_believe_in_science$approval_level))
+
+mydata2 <- bind_rows(believer, non_believer)
+
+ggplot(data=mydata2, aes(fill=belief, x = approval))+
+  geom_bar(width=.5, position = "dodge")+
+    labs(
+    title    = 'People Belief In Science and Their Pandemic Approval Levels',
+    subtitle = 'Count of People Who Believe Vs. Dont Believe In Science And Their Approval Levels', 
+    x        = 'Approval Scale On Governor Handling Pandemic',
+    y        = 'Count Of People', 
+    fill     = 'Belief'
+  )
+
+#Boxplot just to perform some additional visualization analysis and was decided that it would be more reasonable to use the histogram instead
+#ggplot(data=mydata2, aes(group=belief, x = approval))+
+#  geom_boxplot()
+```
+
+
+```{r For individual histogram that show people who believe in importance of science}
+#People Who Believe In Importance of Science
+
+believe_in_science_hist <- believe_in_science %>% 
+  ggplot() +
+  aes(x = V201147x, fill = approval_level) +
+  geom_histogram(position = 'dodge', bins = 4, color = 'black', fill = 'light blue') +
+  labs(
+    title    = 'People Who Believe In Science - Pandemic Approval Levels',
+    subtitle = 'Count of People Who Believe In The Importance Of Science And Their Approval Levels', 
+    x        = 'Approval Scale On Governor Handling Pandemic',
+    y        = 'Count Of People Who Believe In Science', 
+    fill     = 'Republican'
+  )
+
+believe_in_science_hist + scale_x_continuous(
+  breaks = c(1, 2, 3, 4),
+  label = c("Approve Strongly", "Approve Not Strongly", "Disapprove Not Strongly", "Disapprove Strongly")
+)
+```
+
+```{r For individual histogram that show people who don't believe in importance of science}
+#People Who Don't Believe In Importance of Science
+
+dont_believe_in_science_hist <- dont_believe_in_science %>% 
+  ggplot() +
+  aes(x = V201147x, fill = approval_level) +
+  geom_histogram(position = 'dodge', bins = 4, color = 'black', fill = 'orange') +
+  labs(
+    title    = 'People Who Dont Believe In Science - Pandemic Approval Levels',
+    subtitle = 'Count of People Who Dont Believe In The Importance Of Science And Their Approval Levels', 
+    x        = 'Approval Scale On Governor Handling Pandemic',
+    y        = 'Count Of People Who Dont Believe In Science', 
+    fill     = 'Republican'
+  )
+
+dont_believe_in_science_hist + scale_x_continuous(
+  breaks = c(1, 2, 3, 4),
+  label = c("Approve Strongly", "Approve Not Strongly", "Disapprove Not Strongly", "Disapprove Strongly")
+)
+```
+
+## Most appropriate test 
+
+Null Hypothesis: The count of approvals to disapprovals from people who believe that science is important for making government decisions about COVID-19 will equal the count of approvals to disapprovals from people who don’t believe that science is important for making government decisions about COVID-19.
+
+Alternative Hypothesis: The count of approvals to disapprovals from people who believe that science is important for making government decisions about COVID-19 will not equal the count of approvals to disapprovals from people who don’t believe that science is important for making government decisions about COVID-19.
+
+Since the two groups of respondents who believe in science and respondents who don't believe in science aren't equal in size, we weren't able to compare two elements of the same respondents and instead needed to compare across the whole set of individuals by layering in a filter of each group's approval levels. With that, the most appropriate test to use was the wilcoxon ranked-sum test because the two groups are unpaired and variables are ordinal. We have also made our assumptions that the data is I.I.D and variables for respondents who either believe or don't believe in science and their approval levels were ordinal due to the data not being interval/ratio-related and being more categorical. 
+
+After conducting the Wilcoxon Ranked-Sum Test for both groups, it was evident that the results are statistically significant since the p-value was less than 0.05 with an approximate value of 2.2e^-16. The difference in the sum of ranks for those who believe in science versus those who don't believe in science is large enough to be statistically significant and would mean that there is enough evidence to reject the null hypothesis for both since the p-value wasn't close to 0.05. This would mean that in favor of rejecting the null, the count of approvals to disapprovals from people who believe that science is important for making government decisions about COVID-19 will not equal the count of approvals to disapprovals from people who don’t believe that science is important for making government decisions about COVID-19.
+
+In parallel, the practical significance of this outcome indicates that the approvals to disapprovals of people who believe in science will not equal those who don't believe in science. Those who don't believe in science tend to disapprove of how the governor is handling the pandemic which is the same results as those who believe in science tending to likely approve of how the governor is handling the pandemic. It is also worth noting that the difference in location which is another way of saying the median of the difference between the sample of those who believe in science and those who don't believe in science had a value of 2 which is considered small enough to not be meaningful in real life.
+
+```{r}
+#Test results for Wilcoxon Rank-Sum Test since the filtered dataset is an unpaired sample with ordinal data
+#Prior to running the Wilcoxon Rank-Sum Test, the separate dataframe below needs to be created so that the approval levels and binary options of believe in science versus not believe in science are transformed back into numeric values.
+
+#mydata2 <- mydata2 %>%
+#  mutate(approval_level = case_when(
+#    approval == 'Approve Strongly' ~ 1,
+#    approval == 'Approve Not Strongly' ~ 2,
+#    approval == 'Disapprove Not Strongly' ~ 3,
+#    approval == 'Disapprove Strongly' ~ 4))
+
+#mydata2 <- mydata2 %>%
+#  mutate(belief = case_when(
+#    belief == 'Believe' ~ 0,
+#    belief == 'No_Believe' ~ 1))
+
+#mydata2
+
+mydata2_wilcox <- wilcox.test(mydata2$approval_level, mydata2$belief, conf.int=T, conf.level=0.95, paired=F, data = mydata2, alternative = 'two.sided', exact = FALSE)
+
+mydata2_wilcox
+
+```
+## Test, results and interpretation
+
+After conducting the Wilcoxon Ranked-Sum Test for both groups, it was evident that the results are statistically significant since the p-values for both were less than 0.05 with an approximate value of 2.2e^-16. The difference in the sum of ranks for those who believe in science versus those who don't believe in science is large enough to be statistically significant at the alpha equals .05 level. This would mean that there is enough evidence to reject the null hypothesis for both since the p-value wasn't close to 0.05 and this would mean that people who believe that science is important for making decisions about COVID-19 are not likely to disapprove of how the governor is handling the pandemic or vice versa. 
+
+## Test Limitations
+
+As for test limitations - Since the two groups weren't equal in size, there was no natural pairing for this question. In a sense, we weren't able to compare two things about the same individuals but instead compared the following across people - Those who believe in science versus those who don't and their level of approval. This meant that the test ended up being conducted as an unpaired test due to measuring two different things about that same individual. It is also evident that the outcomes of this test are limited due to the fact that the election was held in a very tumultuous time in American politics and we cannot guarantee that the response data is accurate. In order to arrive at the most appropriate results, we had to perform some data cleansing to remove any variables that didn't fit the scope of people's belief in science along with their approval scales. Even so, some respondents might've just disapproved of the way governors are handling the pandemic regardless of their inclination to science or not. We also cannot draw causality between people's belief in science and their disapproval counts with the way governors are handling the pandemic even though the results of the wilcoxon ranked-sum test provided a very low p-value that enabled us to reject the null hypothesis.

@@ -1,0 +1,93 @@
+---
+title: "Base_Document"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+```
+
+```{r read in data}
+
+listings_uncleaned_data <- read.csv("july_listings_data.csv")
+```
+
+```{r create new data}
+#keep only necessary columns
+
+listings_data <- subset(listings_uncleaned_data, select = c(id,	last_scraped,	neighbourhood_group_cleansed, room_type,	price,	has_availability,	availability_60,	calendar_last_scraped, review_scores_rating, availability_30, availability_90, availability_365))		
+
+listings_data <- listings_data %>%
+  mutate(price = as.numeric(gsub("[$,]", "", listings_data$price)),
+        has_availability = case_when(has_availability == 't' ~ 1, has_availability == 'f' ~ 0),
+        not_avail = case_when(has_availability == 1 & availability_30 == 0 & availability_60 == 0 & availability_90 == 0 & availability_365 == 0  ~ 'remove',
+    TRUE ~ 'keep'))
+```
+
+```{r Filter Data}
+listings_data <- listings_data %>% drop_na()
+listings_data <- listings_data %>% filter(not_avail == 'keep') #remove listings that indicate calendar is available but no slots are available
+```
+
+```{r EDA Price}
+scatter_price <- ggplot(listings_data, aes(x=log10(price), y=availability_60)) + geom_point() + geom_smooth(se = TRUE)
+histo_price <- ggplot(listings_data, aes(x=log10(price))) + geom_histogram()
+
+histo_price + scatter_price
+```
+
+```{r EDA Review Scores}
+scatter_rating <- ggplot(listings_data, aes(x=review_scores_rating, y=availability_60)) + geom_point() + geom_smooth(se = TRUE)
+histo_rating <- ggplot(listings_data, aes(x=review_scores_rating)) + geom_histogram()
+
+histo_rating + scatter_rating
+```
+
+```{r}
+model1_with_rating <- lm(availability_60 ~ log10(price) + review_scores_rating, data = listings_data)
+model2_with_rating <- lm(availability_60 ~ log10(price) + review_scores_rating + factor(room_type) - 1 , data = listings_data)
+model3_with_rating <- lm(availability_60 ~ log10(price) + review_scores_rating + factor(room_type) - 1 + (factor(neighbourhood_group_cleansed) - 1), data = listings_data)
+
+ stargazer(
+   model1_with_rating, model2_with_rating, model3_with_rating,
+   title = "Regression Results",
+   align = TRUE,
+   type = 'text'
+   #dep.var.labels = c("Availability 60 days In The Future"),
+   #covariate.labels = c("Log of Price", "Overall Rating", "Entire Home or Apartment", "Hotel Room", "Private Room", "Shared Room", "Other Cities", "Unincorporated Areas")
+   )
+ 
+```
+```{r}
+plot(model1_with_rating)
+```
+
+```{r}
+plot(model2_with_rating)
+```
+
+```{r}
+plot(model3_with_rating)
+```
+
+
+```{r}
+model1_no_rating <- lm(availability_60 ~ log10(price), data = listings_data)
+model2_no_rating <- lm(availability_60 ~ log10(price) + factor(room_type) - 1 , data = listings_data)
+model3_no_rating <- lm(availability_60 ~ log10(price) + factor(room_type) - 1 + (factor(neighbourhood_group_cleansed) - 1), data = listings_data)
+
+ stargazer(
+   model1_no_rating, model2_no_rating, model3_no_rating,
+   title = "Regression Results",
+   align = TRUE,
+   type = 'text'
+   #dep.var.labels = c("Availability 60 days In The Future"),
+   #covariate.labels = c("Log of Price", "Entire Home or Apartment", "Hotel Room", "Private Room", "Shared Room", "Other Cities", "Unincorporated Areas")
+   )
+```
+
