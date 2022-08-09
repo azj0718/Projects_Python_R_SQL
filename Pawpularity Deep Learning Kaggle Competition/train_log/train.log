@@ -1,0 +1,22 @@
+===== Fold 0 =====
+train size : 7929  valid size : 1983
+Dumping model with pickle... lightgbm_fold0.pkl
+fold0 score: 18.84763
+===== Fold 1 =====
+train size : 7929  valid size : 1983
+Dumping model with pickle... lightgbm_fold1.pkl
+fold1 score: 19.07351
+===== Fold 2 =====
+train size : 7930  valid size : 1982
+Dumping model with pickle... lightgbm_fold2.pkl
+fold2 score: 18.85153
+===== Fold 3 =====
+train size : 7930  valid size : 1982
+Dumping model with pickle... lightgbm_fold3.pkl
+fold3 score: 18.66006
+===== Fold 4 =====
+train size : 7930  valid size : 1982
+Dumping model with pickle... lightgbm_fold4.pkl
+fold4 score: 19.14475
+CV score: 18.91631
+CV: 18.91631
